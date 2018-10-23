@@ -2,6 +2,8 @@ package com.github.xuejike.rtp;
 
 import org.pcap4j.core.*;
 import org.pcap4j.packet.Packet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -20,9 +22,11 @@ import java.util.concurrent.atomic.AtomicReference;
  * @author xuejike
  */
 public class RtpSniffing {
+    protected static Logger logger = LoggerFactory.getLogger(RtpSniffing.class);
     protected RtpAnalysis rtpAnalysis;
     protected PcapHandle handle;
     protected boolean status=false;
+    protected String errorMsg;
 
     public RtpSniffing(RtpAnalysis rtpAnalysis) {
         this.rtpAnalysis = rtpAnalysis;
@@ -69,18 +73,23 @@ public class RtpSniffing {
                 }while (status);
             }).start();
 
-        } catch (PcapNativeException e) {
-            e.printStackTrace();
-        } catch (NotOpenException e) {
-            e.printStackTrace();
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
+        } catch (PcapNativeException | NotOpenException | UnknownHostException e) {
+            status = false;
+            errorMsg=e.getMessage();
+            logger.error("网络嗅探启动失败",e);
         }
 
     }
 
     public void close() {
         status =false;
+    }
 
+    public boolean isStatus() {
+        return status;
+    }
+
+    public String getErrorMsg() {
+        return errorMsg;
     }
 }
