@@ -1,6 +1,8 @@
 package com.github.xuejike.rtp;
 
 import org.pcap4j.packet.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -12,26 +14,30 @@ import java.util.concurrent.Executors;
  * @author xuejike
  */
 public class RtpAnalysis {
-    protected ExecutorService dealPool= Executors.newCachedThreadPool();
+    private static Logger logger= LoggerFactory.getLogger(RtpAnalysis.class);
+    protected ExecutorService dealPool;
     protected Timer cleanTimer=new Timer(true);
     protected HashMap<String, List<RtpPacket>> rtpMap=new HashMap<>();
     protected HashMap<String,String> macRTPMap=new HashMap<>();
     protected HashMap<String,Long> rtpUpdate = new HashMap<>();
     protected List<String> cleanKey=new ArrayList<>(10);
     protected SaveRTPCallback saveRTPCallback= (srcMac, destMac, waveData) -> {
-
+        logger.info("saveEvent : {}->{}",srcMac,destMac);
     };
 
-    protected CheckRTPCallback checkRTPCallback= (srcMac, destMac, ssrc) -> {
-
+    protected FindRTPCallback findRTPCallback = (srcMac, destMac, ssrc) -> {
+        logger.info("findNewEvent : {}->{} ={}",srcMac,destMac,ssrc);
     };
+    protected long saveLimit=1000*5;
 
-    public RtpAnalysis() {
+    public RtpAnalysis(int threadPoolSize) {
+        dealPool= Executors.newFixedThreadPool(threadPoolSize);
         cleanTimer.schedule(new TimerTask() {
             @Override
             public void run() {
                 for (Map.Entry<String, Long> entry : rtpUpdate.entrySet()) {
-                    if ((System.currentTimeMillis()-entry.getValue())>1000*10){
+                    // 超过5秒 自动保存
+                    if ((System.currentTimeMillis()-entry.getValue())>saveLimit){
                         String key = entry.getKey();
 
                         checkSaveRTP(key);
@@ -45,16 +51,20 @@ public class RtpAnalysis {
 
 
             }
-        },1000*10,1000*10);
+        },1000*5,1000*5);
 
+    }
+
+    public RtpAnalysis() {
+        this(3);
     }
 
     public void setSaveRTPCallback(SaveRTPCallback saveRTPCallback) {
         this.saveRTPCallback = saveRTPCallback;
     }
 
-    public void setCheckRTPCallback(CheckRTPCallback checkRTPCallback) {
-        this.checkRTPCallback = checkRTPCallback;
+    public void setFindRTPCallback(FindRTPCallback findRTPCallback) {
+        this.findRTPCallback = findRTPCallback;
     }
 
     /**
@@ -179,6 +189,7 @@ public class RtpAnalysis {
 
     public void read(Packet packet){
         dealPool.submit(()->{
+
             if (packet instanceof EthernetPacket){
                 EthernetPacket.EthernetHeader header = ((EthernetPacket) packet).getHeader();
                 if (packet.getPayload() instanceof IpV4Packet){
@@ -197,10 +208,10 @@ public class RtpAnalysis {
                                     String dstMacAddr = header.getDstAddr().toString().replaceAll(":","-");
                                     String srcMacAddr = header.getSrcAddr().toString().replaceAll(":","-");
                                     RtpPacket rtpPacket = new RtpPacket(payload.getRawData(), dstIpAddr, srcIpAddr, srcMacAddr, dstMacAddr);
-                                    if (macRTPMap.get(srcMacAddr) != null){
+                                    if (macRTPMap.get(srcMacAddr) != null && !macRTPMap.get(srcMacAddr).equals(rtpPacket.ssrc)){
                                         checkSaveRTP(macRTPMap.get(srcMacAddr));
                                     }
-                                    checkRTPCallback.findRTP(srcMacAddr,dstMacAddr,rtpPacket.ssrc);
+                                    findRTPCallback.findRTP(srcMacAddr,dstMacAddr,rtpPacket.ssrc);
                                     macRTPMap.put(srcMacAddr,rtpPacket.ssrc);
                                     List<RtpPacket> packetList = rtpMap.get(rtpPacket.ssrc);
                                     if (packetList == null){
@@ -227,10 +238,22 @@ public class RtpAnalysis {
         dealPool.shutdown();
     }
 
+    public HashMap<String, List<RtpPacket>> getRtpMap() {
+        return rtpMap;
+    }
+
+    public long getSaveLimit() {
+        return saveLimit;
+    }
+
+    public void setSaveLimit(long saveLimit) {
+        this.saveLimit = saveLimit;
+    }
+
     public interface SaveRTPCallback{
         void saveEvent(String srcMac,String destMac,byte[] waveData);
     }
-    public interface CheckRTPCallback{
+    public interface FindRTPCallback {
         void findRTP(String srcMac,String destMac,String ssrc);
     }
 }
