@@ -45,4 +45,45 @@ public class RtpPacket implements Comparable{
         long l = ((RtpPacket) o).seq.longValue();
         return (int) (seq.longValue()-l);
     }
+
+
+    public byte[] getRawData() {
+        return rawData;
+    }
+
+    public UByte getPayloadType() {
+        return payloadType;
+    }
+
+    public UShort getSeq() {
+        return seq;
+    }
+
+    public String getDestIp() {
+        return destIp;
+    }
+
+    public String getSrcIp() {
+        return srcIp;
+    }
+
+    public String getDestMac() {
+        return destMac;
+    }
+
+    public String getSrcMac() {
+        return srcMac;
+    }
+
+    public String getSsrc() {
+        return ssrc;
+    }
+
+    public UInt getTimestamp() {
+        return timestamp;
+    }
+
+    public byte[] getPayload() {
+        return payload;
+    }
 }
