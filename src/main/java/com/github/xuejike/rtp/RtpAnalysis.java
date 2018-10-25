@@ -250,10 +250,5 @@ public class RtpAnalysis {
         this.saveLimit = saveLimit;
     }
 
-    public interface SaveRTPCallback{
-        void saveEvent(String srcMac,String destMac,byte[] waveData);
-    }
-    public interface FindRTPCallback {
-        void findRTP(String srcMac,String destMac,String ssrc);
-    }
+
 }
