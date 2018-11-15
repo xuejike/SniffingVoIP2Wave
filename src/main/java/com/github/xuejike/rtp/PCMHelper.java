@@ -1,9 +1,10 @@
 package com.github.xuejike.rtp;
 
-import it.sauronsoftware.jave.*;
+
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ws.schild.jave.*;
 
 import java.io.*;
 
@@ -94,7 +95,7 @@ public class PCMHelper {
             EncodingAttributes attrs = new EncodingAttributes();
             attrs.setFormat("mp3");
             attrs.setAudioAttributes(audio);
-            encoder.encode(pcm,new File(filePath),attrs);
+            encoder.encode(new MultimediaObject(pcm),new File(filePath),attrs);
 
 
         } catch (Exception e) {

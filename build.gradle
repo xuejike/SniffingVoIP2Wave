@@ -16,7 +16,9 @@ repositories {
 dependencies {
     compile 'org.pcap4j:pcap4j-core:1.+'
     compile 'org.pcap4j:pcap4j-packetfactory-static:1.+'
-    compile fileTree("./lib")
+    compile 'ws.schild:jave-all-deps:2.4.4'
+    // https://mvnrepository.com/artifact/ws.schild/jave-native-win64
+    compile 'ws.schild:jave-core:2.4.4'
     // https://mvnrepository.com/artifact/commons-io/commons-io
     compile group: 'commons-io', name: 'commons-io', version: '2.6'
 
