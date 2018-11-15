@@ -1,11 +1,17 @@
 package com.github.xuejike.rtp;
 
+import it.sauronsoftware.jave.*;
+import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 
 /**
  * @author xuejike
  */
 public class PCMHelper {
+    static Logger logger = LoggerFactory.getLogger(PCMHelper.class);
     private final static int HEADER_LENGTH = 50;
 
     private final static byte[] RIFF_array = { 'R', 'I', 'F', 'F' };
@@ -68,13 +74,46 @@ public class PCMHelper {
                 stream.write(wave);
                 stream.close();
             }else{
-                System.out.println("文件创建失败");
+                logger.error("文件创建失败");
             }
         }else{
-            System.out.println("文件已经存在");
+            logger.error("文件已经存在");
         }
     }
 
+    public static void pcm2Mp3(byte[] data,String filePath){
+        try {
+            File pcm = File.createTempFile("pcm", ".wav");
+            FileUtils.writeByteArrayToFile(pcm,data);
+            Encoder encoder = new Encoder();
+            AudioAttributes audio = new AudioAttributes();
+            audio.setCodec("libmp3lame");
+            audio.setBitRate(128000);
+            audio.setChannels(2);
+            audio.setSamplingRate(8000);
+            EncodingAttributes attrs = new EncodingAttributes();
+            attrs.setFormat("mp3");
+            attrs.setAudioAttributes(audio);
+            encoder.encode(pcm,new File(filePath),attrs);
+
+
+        } catch (Exception e) {
+            if (e instanceof IOException){
+                logger.error("文件创建失败",e);
+            }else if (e instanceof EncoderException){
+                logger.error("MP3编码错误",e);
+            }else{
+                logger.error("文件输出异常",e);
+            }
+            try {
+                FileUtils.writeByteArrayToFile(new File(filePath),data);
+            } catch (IOException e1) {
+                logger.error("文件创建失败:{}",filePath,e);
+            }
+
+        }
+
+    }
     /**
      * att. Little Endian
      *

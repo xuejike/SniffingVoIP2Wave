@@ -71,7 +71,7 @@ public class RtpAnalysis {
      * 检测保存
      * @param key
      */
-    private void checkSaveRTP(String key) {
+    public void checkSaveRTP(String key) {
         List<RtpPacket> rtpPackets = rtpMap.get(key);
         if (rtpPackets !=null && rtpPackets.size()>0){
             RtpPacket rtpPacket = rtpPackets.get(0);
