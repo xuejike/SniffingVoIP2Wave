@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -17,9 +18,9 @@ public class RtpAnalysis {
     private static Logger logger= LoggerFactory.getLogger(RtpAnalysis.class);
     protected ExecutorService dealPool;
     protected Timer cleanTimer=new Timer(true);
-    protected HashMap<String, List<RtpPacket>> rtpMap=new HashMap<>();
-    protected HashMap<String,String> macRTPMap=new HashMap<>();
-    protected HashMap<String,Long> rtpUpdate = new HashMap<>();
+    protected Map<String, List<RtpPacket>> rtpMap=new ConcurrentHashMap<>();
+    protected Map<String,String> macRTPMap=new ConcurrentHashMap<>();
+    protected Map<String,Long> rtpUpdate = new ConcurrentHashMap<>();
     protected List<String> cleanKey=new ArrayList<>(10);
     protected SaveRTPCallback saveRTPCallback= (srcMac, destMac, waveData) -> {
         logger.info("saveEvent : {}->{}",srcMac,destMac);
@@ -238,7 +239,7 @@ public class RtpAnalysis {
         dealPool.shutdown();
     }
 
-    public HashMap<String, List<RtpPacket>> getRtpMap() {
+    public Map<String, List<RtpPacket>> getRtpMap() {
         return rtpMap;
     }
 
