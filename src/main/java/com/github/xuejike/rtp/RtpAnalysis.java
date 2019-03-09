@@ -1,5 +1,6 @@
 package com.github.xuejike.rtp;
 
+import com.github.xuejike.unsigned.number.UShort;
 import org.pcap4j.packet.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -119,14 +120,25 @@ public class RtpAnalysis {
      */
     private byte[] getRtpDataArray(List<RtpPacket> rtpPackets) {
         Collections.sort(rtpPackets);
+
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        for (RtpPacket packet : rtpPackets) {
-            try {
-                baos.write(packet.payload);
-            } catch (IOException e) {
-                e.printStackTrace();
+        rtpPackets.stream().findFirst().ifPresent(f->{
+            UShort lastSeq = f.seq;
+            for (RtpPacket packet : rtpPackets) {
+                try {
+                    if (packet.seq.intValue() > lastSeq.intValue()+1){
+                        for (int i = lastSeq.intValue()+1; i < packet.seq.intValue(); i++) {
+                            baos.write(new byte[packet.payload.length]);
+                        }
+                    }
+                    baos.write(packet.payload);
+                    lastSeq = packet.seq;
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
-        }
+        });
+
         return baos.toByteArray();
     }
 
