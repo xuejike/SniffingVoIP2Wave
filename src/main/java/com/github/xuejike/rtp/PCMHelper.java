@@ -100,16 +100,16 @@ public class PCMHelper {
 
         } catch (Exception e) {
             if (e instanceof IOException){
-                logger.error("文件创建失败",e);
+                logger.error("pcm2Mp3:文件创建失败",e);
             }else if (e instanceof EncoderException){
-                logger.error("MP3编码错误",e);
+                logger.error("pcm2Mp3:MP3编码错误",e);
             }else{
-                logger.error("文件输出异常",e);
+                logger.error("pcm2Mp3:文件输出异常",e);
             }
             try {
                 FileUtils.writeByteArrayToFile(new File(filePath),data);
             } catch (IOException e1) {
-                logger.error("文件创建失败:{}",filePath,e);
+                logger.error("pcm2Mp3:文件创建失败:{}",filePath,e);
             }
 
         }

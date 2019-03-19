@@ -19,10 +19,16 @@ public class RtpAnalysis {
     private static Logger logger= LoggerFactory.getLogger(RtpAnalysis.class);
     protected ExecutorService dealPool;
     protected Timer cleanTimer=new Timer(true);
+    /**
+     * SSRC Map
+     */
     protected Map<String, List<RtpPacket>> rtpMap=new ConcurrentHashMap<>();
     protected Map<String,String> macRTPMap=new ConcurrentHashMap<>();
     protected Map<String,Long> rtpUpdate = new ConcurrentHashMap<>();
     protected List<String> cleanKey=new ArrayList<>(10);
+
+    protected Map<String,SaveInfo> saveKeyList = new ConcurrentHashMap<>(20);
+
     protected SaveRTPCallback saveRTPCallback= (srcMac, destMac, waveData) -> {
         logger.info("saveEvent : {}->{}",srcMac,destMac);
     };
@@ -30,30 +36,87 @@ public class RtpAnalysis {
     protected FindRTPCallback findRTPCallback = (srcMac, destMac, ssrc) -> {
         logger.info("findNewEvent : {}->{} ={}",srcMac,destMac,ssrc);
     };
-    protected long saveLimit=1000*5;
+    protected long saveLimit=1000*60*60*10;
 
     public RtpAnalysis(int threadPoolSize) {
         dealPool= Executors.newFixedThreadPool(threadPoolSize);
+        //3秒执行一次
         cleanTimer.schedule(new TimerTask() {
             @Override
             public void run() {
-                for (Map.Entry<String, Long> entry : rtpUpdate.entrySet()) {
-                    // 超过5秒 自动保存
-                    if ((System.currentTimeMillis()-entry.getValue())>saveLimit){
-                        String key = entry.getKey();
-
-                        checkSaveRTP(key);
-
-                    }
-                }
-                cleanKey.stream().forEach(k->{
-                    rtpUpdate.remove(k);
-                });
-                cleanKey.clear();
-
+                saveListToFile();
+                cleanDataMap();
 
             }
-        },1000*5,1000*5);
+        },1000*3,1000*3);
+
+    }
+
+    private void saveListToFile() {
+        logger.info("=========当前数据============");
+        for (Map.Entry<String, List<RtpPacket>> entry : rtpMap.entrySet()) {
+            logger.info("SSRC=>{},size=>{}",entry.getKey(),entry.getValue().size());
+        }
+
+        logger.info("=========end============");
+//        logger.info("========执行数据保存=========");
+//        List<SaveInfo> cacheList = saveKeyList;
+//        saveKeyList = new Vector<>(20);
+//        int saveCount = 0;
+//        for (SaveInfo item : cacheList) {
+//            saveCount = saveMp3(item);
+//
+//        }
+//        logger.info("保存数据{}条",saveCount);
+//        logger.info("========执行完成=========");
+    }
+
+    public int saveMp3(SaveInfo item) {
+
+        byte[] saveRTP = checkSaveRTP(item);
+        if (saveRTP.length > 0){
+            PCMHelper.pcm2Mp3(saveRTP,item.getFile());
+            logger.info("保存数据:客户端={},mac={},file={}",item.getNo(),item.getMac(),item.getFile());
+
+            saveKeyList.remove(item.getSrcSSRC());
+        }else{
+            logger.info("保存失败:mac:{}",item.getMac());
+        }
+        return 0;
+    }
+
+    private void cleanDataMap() {
+
+        logger.info("========无效缓存数据清理({})=========",rtpUpdate.size());
+        for (Map.Entry<String, Long> entry : rtpUpdate.entrySet()) {
+            // 超过10分钟 清空数据
+            if ((System.currentTimeMillis()-entry.getValue()) > saveLimit){
+                String key = entry.getKey();
+                cleanKey.add(key);
+            }
+        }
+
+        cleanKey.forEach(k->{
+            SaveInfo info = saveKeyList.remove(k);
+            logger.info("===丢失保存数据===");
+            saveMp3(info);
+        });
+
+        cleanKey.forEach(k-> {
+            rtpUpdate.remove(k);
+            List<RtpPacket> remove = rtpMap.remove(k);
+            Optional.ofNullable(remove)
+                    .flatMap(list-> list.stream().findFirst())
+                    .ifPresent(item->{
+                        logger.info("清理:destIp={},destMac={},srcIp={},srcMac={},ssrc={}"
+                                ,item.getDestIp(),item.getDestMac(),item.getSrcIp()
+                                ,item.getSrcMac(),item.getSsrc());
+                    });
+        });
+
+
+        cleanKey.clear();
+        logger.info("========清理完成({})=========",rtpUpdate.size());
 
     }
 
@@ -71,25 +134,28 @@ public class RtpAnalysis {
 
     /**
      * 检测保存
-     * @param key
+     * @param item
      */
-    public void checkSaveRTP(String key) {
-        List<RtpPacket> rtpPackets = rtpMap.get(key);
-        if (rtpPackets !=null && rtpPackets.size()>0){
-            RtpPacket rtpPacket = rtpPackets.get(0);
-            String destSSRC = macRTPMap.get(rtpPacket.destMac);
-            if (destSSRC != null & rtpMap.get(destSSRC) != null){
-                saveRtpDouble(rtpPackets,rtpMap.get(destSSRC));
-                cleanRtpPacket(rtpPacket);
-                cleanRtpPacket(rtpMap.get(destSSRC).get(0));
-            }else{
-                saveRtp(rtpPackets);
-                cleanRtpPacket(rtpPacket);
-            }
-        }else{
-            cleanKey.add(key);
-            rtpMap.remove(key);
+    public byte[] checkSaveRTP(SaveInfo item) {
+
+
+        List<RtpPacket> srcList = rtpMap.remove(item.getSrcSSRC());
+        logger.info("checkSave=>Src:{}=>{}",item.getSrcSSRC(),Optional
+                .ofNullable(srcList)
+                .map(List::size).orElse(0));
+        List<RtpPacket> destList = rtpMap.remove(item.getDestSSRC());
+        logger.info("checkSave=>Dest:{}=>{}",item.getDestSSRC(),Optional
+                .ofNullable(destList)
+                .map(List::size).orElse(0));
+        if (srcList !=null && srcList.size()>0 && destList != null && destList.size() > 0){
+            return saveRtpDouble(srcList, destList);
         }
+        byte[] rs = Optional.ofNullable(srcList)
+                .filter(l->l.size()>0)
+                .map(this::saveRtp).orElseGet(()-> Optional.ofNullable(destList)
+                        .filter(l -> l.size() > 0)
+                        .map(this::saveRtp).orElse(new byte[0]));
+        return rs;
     }
 
     /**
@@ -106,11 +172,11 @@ public class RtpAnalysis {
      * 保存单通道
      * @param rtpPackets
      */
-    private void saveRtp(List<RtpPacket> rtpPackets) {
+    private byte[] saveRtp(List<RtpPacket> rtpPackets) {
         RtpPacket rtpPacket = rtpPackets.get(0);
         byte[] baos = getRtpDataArray(rtpPackets);
         byte[] wave = PCMHelper.PCM2Wave(baos, 1, 8000, 8);
-        saveRTPCallback.saveEvent(rtpPacket.srcMac,rtpPacket.destMac,wave);
+        return wave;
     }
 
     /**
@@ -147,28 +213,28 @@ public class RtpAnalysis {
      * @param rtpPackets1
      * @param rtpPackets2
      */
-    private void saveRtpDouble(List<RtpPacket> rtpPackets1, List<RtpPacket> rtpPackets2) {
+    private byte[] saveRtpDouble(List<RtpPacket> rtpPackets1, List<RtpPacket> rtpPackets2) {
         if (rtpPackets1 != null || rtpPackets2 != null){
             if (rtpPackets1 ==null){
                 saveRtp(rtpPackets2);
-                return;
+                return new byte[0];
             }
             if (rtpPackets2 == null){
                 saveRtp(rtpPackets1);
-                return;
+                return new byte[0];
             }
             byte[] rtpArray1 = getRtpDataArray(rtpPackets1);
             byte[] rtpArray2 = getRtpDataArray(rtpPackets2);
             try {
                 byte[] mergeRtp = mergeRtp(rtpArray1, rtpArray2);
                 byte[] pcm2Wave = PCMHelper.PCM2Wave(mergeRtp, 2, 8000, 8);
-                RtpPacket rtpPacket = rtpPackets1.get(0);
-                saveRTPCallback.saveEvent(rtpPacket.srcMac,rtpPacket.destMac,pcm2Wave);
+                return pcm2Wave;
             } catch (IOException e) {
-                e.printStackTrace();
+                logger.error("抓包保存失败",e);
             }
         }
 
+        return new byte[0];
     }
 
     private byte[] mergeRtp(byte[] rtpArray1, byte[] rtpArray2) throws IOException {
@@ -195,7 +261,6 @@ public class RtpAnalysis {
             return;
         }
         cleanKey.add(key);
-        System.out.println("save --> "+key);
         rtpMap.remove(key);
 
     }
@@ -221,20 +286,17 @@ public class RtpAnalysis {
                                     String dstMacAddr = header.getDstAddr().toString().replaceAll(":","-");
                                     String srcMacAddr = header.getSrcAddr().toString().replaceAll(":","-");
                                     RtpPacket rtpPacket = new RtpPacket(payload.getRawData(), dstIpAddr, srcIpAddr, srcMacAddr, dstMacAddr);
-                                    if (macRTPMap.get(srcMacAddr) != null && !macRTPMap.get(srcMacAddr).equals(rtpPacket.ssrc)){
-                                        checkSaveRTP(macRTPMap.get(srcMacAddr));
-                                    }
+
                                     findRTPCallback.findRTP(srcMacAddr,dstMacAddr,rtpPacket.ssrc);
                                     macRTPMap.put(srcMacAddr,rtpPacket.ssrc);
-                                    List<RtpPacket> packetList = rtpMap.get(rtpPacket.ssrc);
-                                    if (packetList == null){
-                                        packetList=new LinkedList<RtpPacket>();
-                                        rtpMap.put(rtpPacket.ssrc,packetList);
-                                    }
+                                    List<RtpPacket> packetList = rtpMap.computeIfAbsent(rtpPacket.ssrc,k->{
+                                        logger.info("新增SSRC=>{},srcMac=>{},destMac={}"
+                                                ,k,rtpPacket.getSrcMac(),rtpPacket.getDestMac());
+                                        return new Vector<>();
+                                    });
                                     packetList.add(rtpPacket);
                                     rtpUpdate.put(rtpPacket.ssrc,System.currentTimeMillis());
-//                                rtpMap.get(rtpPacket.ssrc)
-//                                if (rtpMap.get(rtpPacket.ssrc))
+//
                                 }
                             }
                         }
@@ -263,5 +325,29 @@ public class RtpAnalysis {
         this.saveLimit = saveLimit;
     }
 
+    public void addSaveKeyItem(SaveInfo saveInfo) {
 
+        String srcSSRC = macRTPMap.get(saveInfo.getMac());
+
+        if (srcSSRC == null){
+            logger.error("无法获取到SSRC:mac={}",saveInfo.getMac());
+        }else{
+            saveInfo.setSrcSSRC(srcSSRC);
+            List<RtpPacket> destPacket = rtpMap.get(srcSSRC);
+            if (destPacket !=null && destPacket.size() >0){
+                String destMac = destPacket.get(0).getDestMac();
+                if (destMac != null){
+                    saveInfo.setDestSSRC(macRTPMap.getOrDefault(destMac,"-"));
+                }else{
+                    saveInfo.setDestSSRC("-");
+                }
+            }else{
+                logger.error("无法获取到录音数据包:mac:{}",saveInfo.getMac());
+            }
+//            saveMp3(saveInfo);
+            saveKeyList.put(srcSSRC,saveInfo);
+
+        }
+
+    }
 }
