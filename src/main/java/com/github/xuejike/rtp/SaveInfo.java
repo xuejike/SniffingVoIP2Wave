@@ -1,12 +1,12 @@
 package com.github.xuejike.rtp;
 
-public class SaveInfo {
+public class SaveInfo<T> {
     private String no;
     private String mac;
     private String file;
     private String destSSRC;
     private String srcSSRC;
-
+    private T target;
     public SaveInfo() {
     }
 
@@ -53,5 +53,13 @@ public class SaveInfo {
 
     public void setFile(String file) {
         this.file = file;
+    }
+
+    public T getTarget() {
+        return target;
+    }
+
+    public void setTarget(T target) {
+        this.target = target;
     }
 }
