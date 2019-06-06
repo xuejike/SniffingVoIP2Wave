@@ -107,7 +107,12 @@ public class PCMHelper {
                 logger.error("pcm2Mp3:文件输出异常",e);
             }
             try {
-                FileUtils.writeByteArrayToFile(new File(filePath),data);
+                if (new File(filePath).exists()){
+                    logger.error("文件已存在,无法创建:{}",filePath);
+                }else{
+                    FileUtils.writeByteArrayToFile(new File(filePath),data);
+                }
+
             } catch (IOException e1) {
                 logger.error("pcm2Mp3:文件创建失败:{}",filePath,e);
             }
