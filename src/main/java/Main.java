@@ -7,7 +7,6 @@ import com.mashape.unirest.http.exceptions.UnirestException;
 import org.pcap4j.core.*;
 import org.pcap4j.packet.*;
 import org.pcap4j.packet.factory.PacketFactories;
-import org.pcap4j.packet.factory.StaticUdpPortPacketFactory;
 import ws.schild.jave.*;
 
 import java.io.File;

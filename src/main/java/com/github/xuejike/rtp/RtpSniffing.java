@@ -73,7 +73,7 @@ public class RtpSniffing {
                 }while (status);
             }).start();
 
-        } catch (PcapNativeException | NotOpenException | UnknownHostException e) {
+        } catch (Error |PcapNativeException | NotOpenException | UnknownHostException e) {
             status = false;
             errorMsg=e.getMessage();
             logger.error("网络嗅探启动失败",e);
