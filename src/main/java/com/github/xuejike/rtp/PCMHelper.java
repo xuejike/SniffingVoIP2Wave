@@ -82,7 +82,7 @@ public class PCMHelper {
         }
     }
 
-    public static void pcm2Mp3(byte[] data,String filePath){
+    public static void wav2Mp3(byte[] data, String filePath){
         try {
             File pcm = File.createTempFile("pcm", ".wav");
             FileUtils.writeByteArrayToFile(pcm,data);
@@ -99,6 +99,11 @@ public class PCMHelper {
 
 
         } catch (Exception e) {
+            try {
+                FileUtils.writeByteArrayToFile(new File(filePath),data);
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
             if (e instanceof IOException){
                 logger.error("pcm2Mp3:文件创建失败",e);
             }else if (e instanceof EncoderException){

@@ -1,14 +1,12 @@
 package com.github.xuejike.rtp;
 
-import java.util.LinkedList;
-import java.util.List;
-
 public class SaveInfo<T> {
     private String no;
     private String mac;
     private String file;
-    private List<String> destSSRC = new LinkedList<>();
-    private List<String> srcSSRC = new LinkedList<>();
+    private String destMac;
+    private String srcMac;
+    private Long begin = System.currentTimeMillis();
     private T target;
     public SaveInfo() {
     }
@@ -26,21 +24,6 @@ public class SaveInfo<T> {
         this.no = no;
     }
 
-    public List<String> getDestSSRC() {
-        return destSSRC;
-    }
-
-    public void setDestSSRC(List<String> destSSRC) {
-        this.destSSRC = destSSRC;
-    }
-
-    public List<String> getSrcSSRC() {
-        return srcSSRC;
-    }
-
-    public void setSrcSSRC(List<String> srcSSRC) {
-        this.srcSSRC = srcSSRC;
-    }
 
     public String getMac() {
         return mac;
@@ -64,5 +47,25 @@ public class SaveInfo<T> {
 
     public void setTarget(T target) {
         this.target = target;
+    }
+
+    public String getDestMac() {
+        return destMac;
+    }
+
+    public void setDestMac(String destMac) {
+        this.destMac = destMac;
+    }
+
+    public String getSrcMac() {
+        return srcMac;
+    }
+
+    public void setSrcMac(String srcMac) {
+        this.srcMac = srcMac;
+    }
+
+    public Long getBegin() {
+        return begin;
     }
 }
